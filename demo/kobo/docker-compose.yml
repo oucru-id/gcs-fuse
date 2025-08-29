@@ -1,7 +1,7 @@
 services:
   # GCS Mounter for KoboCAT bucket
   gcs-mounter-kobocat:
-    image: ghcr.io/oucru-id/kobo-gcsfuse:latest
+    image: ghcr.io/oucru-id/gcs-fuse:latest
     container_name: gcs-mounter-kobocat
     privileged: true
     restart: unless-stopped
@@ -27,7 +27,7 @@ services:
 
   # GCS Mounter for KPI bucket  
   gcs-mounter-kpi:
-    image: ghcr.io/oucru-id/kobo-gcsfuse:latest
+    image: ghcr.io/oucru-id/gcs-fuse:latest
     container_name: gcs-mounter-kpi
     privileged: true
     restart: unless-stopped
