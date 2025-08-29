@@ -16,8 +16,6 @@ services:
       - GCSFUSE_GID=1001
       - FILE_MODE=664
       - DIR_MODE=775
-    depends_on:
-      - gcsfuse-builder
     healthcheck:
       test: ["CMD", "mountpoint", "-q", "/mnt/gcs"]
       interval: 30s
@@ -44,8 +42,6 @@ services:
       - GCSFUSE_GID=1001
       - FILE_MODE=664
       - DIR_MODE=775
-    depends_on:
-      - gcsfuse-builder
     healthcheck:
       test: ["CMD", "mountpoint", "-q", "/mnt/gcs"]
       interval: 30s
