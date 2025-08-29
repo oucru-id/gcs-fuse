@@ -37,7 +37,7 @@ services:
 
   # GCS Mounter for KPI bucket  
   gcs-mounter-kpi:
-    image: kobo-gcsfuse:latest
+    image: ghcr.io/oucru-id/kobo-gcsfuse:latest
     container_name: gcs-mounter-kpi
     privileged: true
     restart: unless-stopped
