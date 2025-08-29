@@ -6,8 +6,8 @@ services:
     privileged: true
     restart: unless-stopped
     volumes:
-      - ./sa-key.json:/keys/sa-key.json:ro
-      - ./buckets/kobocat:/mnt/gcs:shared
+      - ${SA_KEY_PATH}:/keys/sa-key.json:ro
+      - ${KOBOCAT_BUCKET_PATH}:/mnt/gcs:shared
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
       - BUCKET_NAME=${KOBOCAT_BUCKET_NAME}
@@ -32,8 +32,8 @@ services:
     privileged: true
     restart: unless-stopped
     volumes:
-      - ./sa-key.json:/keys/sa-key.json:ro
-      - ./buckets/kpi:/mnt/gcs:shared
+      - ${SA_KEY_PATH}:/keys/sa-key.json:ro
+      - ${KPI_BUCKET_PATH}:/mnt/gcs:shared
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
       - BUCKET_NAME=${KPI_BUCKET_NAME}
