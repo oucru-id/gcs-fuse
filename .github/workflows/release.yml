@@ -1,0 +1,181 @@
+name: Build and Push to GHCR
+
+on:
+  # Only trigger on version tags (semantic versioning)
+  push:
+    tags: [ 'v*.*.*' ]
+
+# This job builds and pushes the Docker image to GHCR
+jobs:
+  build-and-push:
+    name: Build and push Docker image
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      repo_name: ${{ github.repository }}
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for release notes
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-and-push]
+    runs-on: self-hosted
+    permissions:
+      contents: write
+      packages: read
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for release notes
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Extract version from tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+          # Get the previous tag for comparison
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+      
+          if [ -n "$PREVIOUS_TAG" ]; then
+            # Generate changelog between tags
+            CHANGELOG=$(git log --pretty=format:"- %s" ${PREVIOUS_TAG}..HEAD --no-merges)
+          else
+            # First release - get all commits
+            CHANGELOG=$(git log --pretty=format:"- %s" --no-merges)
+          fi
+      
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+          # Create release body with real newlines
+          RELEASE_BODY="$(cat <<EOF
+          ## What's Changed
+          
+          $CHANGELOG
+          
+          ## Docker Image
+          
+          The Docker image is available at: \`ghcr.io/${{ github.repository }}:$VERSION\`
+          EOF
+          )"
+          echo "release_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release v${{ steps.release_notes.outputs.version }}
+          body: ${{ steps.release_notes.outputs.release_body }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    needs: [build-and-push, create-release]
+    if: always()
+    runs-on: self-hosted
+    
+    steps:
+    - name: Set up environment
+      id: env
+      run: |
+        echo "CURRENT_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+        
+    - name: Check Docker Version
+      run: |
+        echo "Docker version is:"
+        docker --version
+        
+    - name: Clean up workspace
+      run: |
+        echo "Cleaning workspace..."
+        find . -mindepth 1 ! -name '.github' -exec rm -rf {} + 2>/dev/null || true
+        
+    - name: Clean up Docker resources (current workflow only)
+      run: |
+        docker ps -a --filter "label=workflow_run_id=$GITHUB_RUN_ID" -q | xargs -r docker rm -f || true
+        echo "Removing images built by this workflow..."
+        echo "${{ needs.build-and-push.outputs.tags }}" | while read -r tag; do
+          if [ -n "$tag" ]; then
+            docker rmi -f "$tag" 2>/dev/null || true
+          fi
+        done
+        docker builder prune -f --all
+        docker image prune -f --filter 'dangling=true'
+        
+    - name: Clean up old Docker resources (system-wide, time-based)
+      run: |
+        echo "Removing containers older than 1 day..."
+        docker ps -a --filter "status=exited" --filter "status=dead" --format '{{.ID}} {{.CreatedAt}}' | \
+          while read -r id created; do
+            created_ts=$(date -d "${created}" "+%s" 2>/dev/null || echo 0)
+            if [ $created_ts -lt $((${{ env.CURRENT_TIMESTAMP }} - 86400)) ]; then
+              docker rm -f $id 2>/dev/null || true
+            fi
+          done
+        
+        # <-- CHANGED: Removed the '--filter until' argument which is not supported on older Docker versions
+        echo "Pruning all unused images, volumes, and networks..."
+        docker image prune -a -f
+        docker network prune -f
+        
+        if docker volume prune --help | grep -q filter; then
+          docker volume prune -f --filter "label!=keep"
+        else
+          docker volume prune -f
+        fi
+        
+    - name: System status
+      run: |
+        echo "\n=== Disk Space After Cleanup ==="
+        df -h
+        echo "\n=== Docker Disk Usage ==="
+        docker system df
+        echo "\n=== Top 10 Largest Images ==="
+        docker images --format '{{.Size}}\t{{.Repository}}:{{.Tag}}' | sort -hr | head -n 10

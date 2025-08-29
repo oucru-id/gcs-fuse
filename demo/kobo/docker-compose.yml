@@ -1,0 +1,68 @@
+services:
+  # Build custom GCS Fuse image
+  gcsfuse-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kobo-gcsfuse:latest
+    command: ["echo", "GCS Fuse image built successfully"]
+
+  # GCS Mounter for KoboCAT bucket
+  gcs-mounter-kobocat:
+    image: kobo-gcsfuse:latest
+    container_name: gcs-mounter-kobocat
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - ./sa-key.json:/keys/sa-key.json:ro
+      - ./buckets/kobocat:/mnt/gcs:shared
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
+      - BUCKET_NAME=your-kobocat-bucket
+      - MOUNT_POINT=/mnt/gcs
+      - GCSFUSE_UID=1001
+      - GCSFUSE_GID=1001
+      - FILE_MODE=664
+      - DIR_MODE=775
+    depends_on:
+      - gcsfuse-builder
+    healthcheck:
+      test: ["CMD", "mountpoint", "-q", "/mnt/gcs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - kobo-be-network
+
+  # GCS Mounter for KPI bucket  
+  gcs-mounter-kpi:
+    image: kobo-gcsfuse:latest
+    container_name: gcs-mounter-kpi
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - ./sa-key.json:/keys/sa-key.json:ro
+      - ./buckets/kpi:/mnt/gcs:shared
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
+      - BUCKET_NAME=your-kpi-bucket
+      - MOUNT_POINT=/mnt/gcs
+      - GCSFUSE_UID=1001
+      - GCSFUSE_GID=1001
+      - FILE_MODE=664
+      - DIR_MODE=775
+    depends_on:
+      - gcsfuse-builder
+    healthcheck:
+      test: ["CMD", "mountpoint", "-q", "/mnt/gcs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - kobo-be-network
+
+networks:
+  kobo-be-network:
+    external: true
