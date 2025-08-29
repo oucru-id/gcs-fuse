@@ -4,12 +4,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: kobo-gcsfuse:latest
+    image: ghcr.io/oucru-id/kobo-gcsfuse:latest
     command: ["echo", "GCS Fuse image built successfully"]
 
   # GCS Mounter for KoboCAT bucket
   gcs-mounter-kobocat:
-    image: kobo-gcsfuse:latest
+    image: ghcr.io/oucru-id/kobo-gcsfuse:latest
     container_name: gcs-mounter-kobocat
     privileged: true
     restart: unless-stopped
