@@ -1,12 +1,4 @@
 services:
-  # Build custom GCS Fuse image
-  gcsfuse-builder:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ghcr.io/oucru-id/kobo-gcsfuse:latest
-    command: ["echo", "GCS Fuse image built successfully"]
-
   # GCS Mounter for KoboCAT bucket
   gcs-mounter-kobocat:
     image: ghcr.io/oucru-id/kobo-gcsfuse:latest
