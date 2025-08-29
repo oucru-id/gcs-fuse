@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-push:
     name: Build and push Docker image
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -57,7 +57,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     needs: [build-and-push]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: read
@@ -119,7 +119,7 @@ jobs:
   cleanup:
     needs: [build-and-push, create-release]
     if: always()
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     
     steps:
     - name: Set up environment
