@@ -12,10 +12,12 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
       - BUCKET_NAME=${KOBOCAT_BUCKET_NAME}
       - MOUNT_POINT=/mnt/gcs
-      - GCSFUSE_UID=1001
-      - GCSFUSE_GID=1001
-      - FILE_MODE=664
-      - DIR_MODE=775
+      - GCSFUSE_UID=1000
+      - GCSFUSE_GID=1000
+      - FILE_MODE=777
+      - DIR_MODE=777
+      - ALLOW_OTHER=${ALLOW_OTHER}
+      - IMPLICIT_DIRS=${IMPLICIT_DIRS}
     healthcheck:
       test: ["CMD", "mountpoint", "-q", "/mnt/gcs"]
       interval: 30s
@@ -38,10 +40,12 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
       - BUCKET_NAME=${KPI_BUCKET_NAME}
       - MOUNT_POINT=/mnt/gcs
-      - GCSFUSE_UID=1001
-      - GCSFUSE_GID=1001
-      - FILE_MODE=664
-      - DIR_MODE=775
+      - GCSFUSE_UID=1000
+      - GCSFUSE_GID=1000
+      - FILE_MODE=777
+      - DIR_MODE=777
+      - ALLOW_OTHER=${ALLOW_OTHER}
+      - IMPLICIT_DIRS=${IMPLICIT_DIRS}
     healthcheck:
       test: ["CMD", "mountpoint", "-q", "/mnt/gcs"]
       interval: 30s
