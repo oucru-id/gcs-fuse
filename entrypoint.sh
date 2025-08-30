@@ -12,30 +12,41 @@ if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
     exit 1
 fi
 
-# Default values - using different variable names to avoid conflicts
+# Default values
 MOUNT_POINT=${MOUNT_POINT:-/mnt/gcs}
-FUSE_UID=${GCSFUSE_UID:-1001}
-FUSE_GID=${GCSFUSE_GID:-1001}
-FILE_MODE=${FILE_MODE:-664}
-DIR_MODE=${DIR_MODE:-775}
+FUSE_UID=${GCSFUSE_UID:-1000}
+FUSE_GID=${GCSFUSE_GID:-1000}
+FILE_MODE=${FILE_MODE:-777}
+DIR_MODE=${DIR_MODE:-777}
 
-echo "Mounting GCS bucket: $BUCKET_NAME"
-echo "Mount point: $MOUNT_POINT"
-echo "UID: $FUSE_UID, GID: $FUSE_GID"
+# Handle fuse.conf modification
+if [ "$ALLOW_OTHER" = "true" ]; then
+    if ! grep -q "user_allow_other" /etc/fuse.conf; then
+        echo "user_allow_other" >> /etc/fuse.conf
+    fi
+fi
+
+# Build gcsfuse command
+GCSFUSE_CMD="gcsfuse"
+GCSFUSE_CMD="$GCSFUSE_CMD --uid=$FUSE_UID"
+GCSFUSE_CMD="$GCSFUSE_CMD --gid=$FUSE_GID"
+GCSFUSE_CMD="$GCSFUSE_CMD --file-mode=$FILE_MODE"
+GCSFUSE_CMD="$GCSFUSE_CMD --dir-mode=$DIR_MODE"
+
+if [ "$ALLOW_OTHER" = "true" ]; then
+    GCSFUSE_CMD="$GCSFUSE_CMD -o allow_other"
+fi
+
+if [ "$IMPLICIT_DIRS" = "true" ]; then
+    GCSFUSE_CMD="$GCSFUSE_CMD --implicit-dirs"
+fi
+
+GCSFUSE_CMD="$GCSFUSE_CMD $BUCKET_NAME $MOUNT_POINT"
+
+echo "Mounting GCS bucket with command: $GCSFUSE_CMD"
 
 # Mount the bucket
-gcsfuse \
-    --uid=$FUSE_UID \
-    --gid=$FUSE_GID \
-    --file-mode=$FILE_MODE \
-    --dir-mode=$DIR_MODE \
-    --implicit-dirs \
-    --rename-dir-limit=100 \
-    --stat-cache-ttl=1h \
-    --type-cache-ttl=1h \
-    --debug_fuse \
-    --debug_gcs \
-    $BUCKET_NAME $MOUNT_POINT
+eval $GCSFUSE_CMD
 
 echo "GCS bucket mounted successfully!"
 

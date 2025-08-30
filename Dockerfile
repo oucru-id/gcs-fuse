@@ -22,6 +22,9 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
 # Create mount point
 RUN mkdir -p /mnt/gcs
 
+ENV ALLOW_OTHER=false
+ENV IMPLICIT_DIRS=false
+
 # Create entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
