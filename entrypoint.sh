@@ -27,26 +27,26 @@ if [ "$ALLOW_OTHER" = "true" ]; then
 fi
 
 # Build gcsfuse command
-GCSFUSE_CMD="gcsfuse"
-GCSFUSE_CMD="$GCSFUSE_CMD --uid=$FUSE_UID"
-GCSFUSE_CMD="$GCSFUSE_CMD --gid=$FUSE_GID"
-GCSFUSE_CMD="$GCSFUSE_CMD --file-mode=$FILE_MODE"
-GCSFUSE_CMD="$GCSFUSE_CMD --dir-mode=$DIR_MODE"
+GCSFUSE_CMD=("gcsfuse")
+GCSFUSE_CMD+=(--uid "$FUSE_UID")
+GCSFUSE_CMD+=(--gid "$FUSE_GID")
+GCSFUSE_CMD+=(--file-mode "$FILE_MODE")
+GCSFUSE_CMD+=(--dir-mode "$DIR_MODE")
 
 if [ "$ALLOW_OTHER" = "true" ]; then
-    GCSFUSE_CMD="$GCSFUSE_CMD -o allow_other"
+    GCSFUSE_CMD+=("-o" "allow_other")
 fi
 
 if [ "$IMPLICIT_DIRS" = "true" ]; then
-    GCSFUSE_CMD="$GCSFUSE_CMD --implicit-dirs"
+    GCSFUSE_CMD+=("--implicit-dirs")
 fi
 
-GCSFUSE_CMD="$GCSFUSE_CMD $BUCKET_NAME $MOUNT_POINT"
+GCSFUSE_CMD+=("$BUCKET_NAME" "$MOUNT_POINT")
 
-echo "Mounting GCS bucket with command: $GCSFUSE_CMD"
+echo "Mounting GCS bucket with command: ${GCSFUSE_CMD[*]}"
 
 # Mount the bucket
-eval $GCSFUSE_CMD
+"${GCSFUSE_CMD[@]}"
 
 echo "GCS bucket mounted successfully!"
 
