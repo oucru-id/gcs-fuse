@@ -1,0 +1,94 @@
+services:
+  newt:
+    image: fosrl/newt
+    container_name: newt
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PANGOLIN_ENDPOINT=https://example.pangolin.domain.org
+      - NEWT_ID=example_newt_id_123456
+      - NEWT_SECRET=example_newt_secret_abcdef012345
+      - DOCKER_SOCKET=/var/run/docker.sock
+
+  label-studio:
+    image: ghcr.io/oucru-id/label-studio:latest
+    container_name: label-studio
+    restart: unless-stopped
+    privileged: true
+    depends_on:
+      gcs-mounter:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+    volumes:
+      - ./data:/label-studio/data/media
+    environment:
+      - STORAGE_PERSISTENCE=true
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data/media
+      - LABEL_STUDIO_BASE_DATA_DIR=/label-studio/data
+      - SSRF_PROTECTION_ENABLED=false
+
+      # General
+      - DISABLE_SIGNUP_WITHOUT_LINK=true
+      - USERNAME=admin@example.org
+      - PASSWORD=ExampleStrongPassword123!
+      - CSRF_TRUSTED_ORIGINS=*
+      - USE_ENFORCE_CSRF_CHECKS=false
+      - SECRET_KEY=example_secret_key_123456789
+
+      # DB
+      - DJANGO_DB=default
+      - POSTGRE_NAME=label_studio
+      - POSTGRE_USER=label_studio
+      - POSTGRE_PASSWORD=example_pg_password_123456
+      - POSTGRE_PORT=5432
+      - POSTGRE_HOST=cloud-sql-proxy
+    labels:
+      - pangolin.proxy-resources.label-studio.name=label-studio
+      - pangolin.proxy-resources.label-studio.full-domain=labelstudio.example.domain.org
+      - pangolin.proxy-resources.label-studio.protocol=http
+      - pangolin.proxy-resources.label-studio.targets[0].method=http
+
+  cloud-sql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:latest
+    container_name: cloud-sql-proxy
+    restart: unless-stopped
+    command:
+      - --address
+      - 0.0.0.0
+      - --port
+      - "5432"
+      - --credentials-file
+      - /secrets/sa-key.json
+      - project:region:sql-instance-name
+    volumes:
+      - ./sa-key.json:/secrets/sa-key.json:ro
+    ports:
+      - "5432:5432"
+
+  gcs-mounter:
+    image: ghcr.io/oucru-id/gcs-fuse:latest
+    container_name: gcs-mounter
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - ./sa-key.json:/keys/sa-key.json:ro
+      - ./data:/mnt/gcs:shared
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/keys/sa-key.json
+      - BUCKET_NAME=project_bucket_label_studio_example
+      - MOUNT_POINT=/mnt/gcs
+      - GCSFUSE_UID=1000
+      - GCSFUSE_GID=1000
+      - FILE_MODE=777
+      - DIR_MODE=777
+      - ALLOW_OTHER=true
+      - IMPLICIT_DIRS=true
+    healthcheck:
+      test: [ "CMD", "mountpoint", "-q", "/mnt/gcs" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
